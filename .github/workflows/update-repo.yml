@@ -1,0 +1,95 @@
+name: Update APT Repository
+
+on:
+  repository_dispatch:
+    types: [update-apt-repo]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish (e.g. 1.0.0)'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Determine version
+        id: ver
+        run: |
+          if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
+            echo "version=${{ github.event.client_payload.version }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Download .deb from release
+        run: |
+          VERSION="${{ steps.ver.outputs.version }}"
+          DEB="openmeteo-sh_${VERSION}-1_all.deb"
+          echo "Downloading ${DEB}..."
+          curl -L -f -o "${DEB}" \
+            "https://github.com/lstpsche/openmeteo-sh/releases/download/${VERSION}/${DEB}"
+          echo "Downloaded ${DEB} ($(stat -c%s "${DEB}") bytes)"
+
+      - name: Install APT tools
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq dpkg-dev apt-utils
+
+      - name: Build APT repository structure
+        run: |
+          VERSION="${{ steps.ver.outputs.version }}"
+          DEB="openmeteo-sh_${VERSION}-1_all.deb"
+
+          # Create pool directory and move .deb
+          mkdir -p pool/main/o/openmeteo-sh
+          mv "${DEB}" pool/main/o/openmeteo-sh/
+
+          # Generate Packages index (includes all versions in pool)
+          mkdir -p dists/stable/main/binary-all
+          dpkg-scanpackages --multiversion pool /dev/null > dists/stable/main/binary-all/Packages
+          gzip -k -f dists/stable/main/binary-all/Packages
+
+          # Generate Release file
+          cd dists/stable
+          apt-ftparchive release . > Release
+
+          echo "APT repo structure built successfully"
+          echo "Packages in pool:"
+          ls -la ../../pool/main/o/openmeteo-sh/
+
+      - name: GPG sign (optional)
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+        run: |
+          if [ -z "${GPG_PRIVATE_KEY}" ]; then
+            echo "No GPG_PRIVATE_KEY secret configured — skipping signing"
+            echo "Users will need [trusted=yes] in their sources list"
+            exit 0
+          fi
+
+          echo "${GPG_PRIVATE_KEY}" | gpg --batch --import
+
+          cd dists/stable
+          gpg --batch --yes --armor --detach-sign -o Release.gpg Release
+          gpg --batch --yes --armor --clearsign -o InRelease Release
+
+          # Export public key so users can add it
+          gpg --armor --export > ../../pubkey.gpg
+          echo "Repository signed and pubkey.gpg exported"
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "apt: openmeteo-sh ${{ steps.ver.outputs.version }}"
+            git push
+            echo "Pushed APT repo update for ${{ steps.ver.outputs.version }}"
+          fi
