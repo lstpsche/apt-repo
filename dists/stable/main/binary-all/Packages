@@ -113,3 +113,26 @@ Description: Fast, lightweight CLI for the entire Open-Meteo API suite
  Features human-friendly colored output, machine-parseable porcelain
  format, and raw JSON mode. Only requires jq as a non-standard dependency.
 
+Package: openmeteo-sh
+Version: 1.6.0-1
+Architecture: all
+Maintainer: Nikita Shkoda <lstpsche@gmail.com>
+Installed-Size: 10
+Depends: bash (>= 4.0), jq, curl
+Filename: pool/main/o/openmeteo-sh/openmeteo-sh_1.6.0-1_all.deb
+Size: 3284
+MD5sum: 5b485c05f3e9bc96690fb719c7a923f8
+SHA1: 7372f3a9ffb0f206859aca26f39f394b7162bf4a
+SHA256: 36836717cce496a0bf8e0ea1228b5113a288f3d6b5654b8ac7821e1b13f2d2b5
+Section: utils
+Priority: optional
+Homepage: https://github.com/lstpsche/openmeteo-sh
+Description: Fast, lightweight CLI for the entire Open-Meteo API suite
+ A Bash CLI tool that provides access to all Open-Meteo APIs from the
+ terminal: weather forecasts, historical data, ensemble models, climate
+ projections, marine weather, air quality, flood data, elevation lookup,
+ and satellite solar radiation.
+ .
+ Features human-friendly colored output, machine-parseable porcelain
+ format, and raw JSON mode. Only requires jq as a non-standard dependency.
+
